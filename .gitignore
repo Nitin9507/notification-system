@@ -16,7 +16,3 @@ frontend/out/
 *.env
 
 .DS_Store
-
-# The employer's assignment brief — not ours to publish
-BackendUpdated*.pdf
-BackendUpdated*.docx
