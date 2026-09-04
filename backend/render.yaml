@@ -1,0 +1,49 @@
+# Render blueprint: one web service + one free Postgres instance.
+# Provider credentials are marked sync:false so they are entered in the
+# dashboard rather than committed here.
+services:
+  - type: web
+    name: notification-system-api
+    runtime: python
+    plan: free
+    buildCommand: "./build.sh"
+    startCommand: "gunicorn config.wsgi:application --bind 0.0.0.0:$PORT"
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11.9"
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DEBUG
+        value: "False"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: notification-system-db
+          property: connectionString
+      - key: INTERNAL_CRON_SECRET
+        generateValue: true
+      - key: FRONTEND_URL
+        sync: false
+      - key: CORS_ALLOWED_ORIGINS
+        sync: false
+      - key: CORS_ALLOW_ALL_ORIGINS
+        value: "False"
+      - key: WHATSAPP_ACCESS_TOKEN
+        sync: false
+      - key: WHATSAPP_PHONE_NUMBER_ID
+        sync: false
+      - key: WHATSAPP_VERIFY_TOKEN
+        sync: false
+      - key: EMAIL_PROVIDER
+        value: brevo
+      - key: BREVO_API_KEY
+        sync: false
+      - key: DEFAULT_FROM_EMAIL
+        sync: false
+      - key: ONESIGNAL_APP_ID
+        sync: false
+      - key: ONESIGNAL_REST_API_KEY
+        sync: false
+
+databases:
+  - name: notification-system-db
+    plan: free

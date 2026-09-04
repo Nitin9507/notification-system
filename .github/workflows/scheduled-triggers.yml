@@ -1,0 +1,19 @@
+# Render's cron jobs are a paid feature, so the inactivity triggers are driven
+# from here instead. Set BACKEND_URL and CRON_SECRET as repository secrets.
+name: Run scheduled notification triggers
+
+on:
+  schedule:
+    - cron: "0 * * * *" # hourly
+  workflow_dispatch: {} # lets you fire it by hand during the demo
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call the scheduler endpoint
+        run: |
+          curl --fail --silent --show-error \
+            -X POST "${{ secrets.BACKEND_URL }}/api/internal/run-scheduled-triggers/" \
+            -H "X-Cron-Secret: ${{ secrets.CRON_SECRET }}" \
+            -H "Content-Type: application/json"
