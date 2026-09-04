@@ -13,6 +13,7 @@ Trigger (row)  ×  Channel (column)  =  Template (cell)  →  Adapter  →  Prov
 | Backend | Python · Django · DRF · PostgreSQL | Render | [backend/README.md](backend/README.md) |
 | Frontend | Next.js (App Router) | Vercel | [frontend/README.md](frontend/README.md) |
 
+**Repository:** https://github.com/Nitin9507/notification-system
 **Live backend:** _paste your Render URL_
 **Live frontend:** _paste your Vercel URL_
 **Walkthrough video:** _paste your unlisted link_
