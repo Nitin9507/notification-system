@@ -16,7 +16,7 @@ Trigger (row)  ×  Channel (column)  =  Template (cell)  →  Adapter  →  Prov
 **Repository:** https://github.com/Nitin9507/notification-system
 **Live frontend:** https://notification-system-khaki.vercel.app
 **Live backend:** https://notification-system-api-lt95.onrender.com
-**Walkthrough video:** _paste your unlisted link_
+**Walkthrough video:** https://drive.google.com/file/d/1rguPSXWNBbktPtJH8Geb9t0lu4cVwKKg/view?usp=sharing
 
 ## Triggers built
 
