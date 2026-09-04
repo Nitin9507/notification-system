@@ -109,13 +109,20 @@ placeholder renders empty rather than raising — admins are not developers.
 
 Meta only accepts free-form text within 24 hours of the user's last inbound
 message. Outside that window a pre-approved template is required. So a WhatsApp
-cell stores **both**: `body` for the open window, and
-`wa_template_name` + `wa_body_params` for outside it. The adapter picks at send
-time based on `profile.last_whatsapp_inbound_at`, which the webhook keeps
-current.
+cell stores **both**: `body`, and `wa_template_name` + `wa_body_params`.
 
-For a demo, message the sandbox number from your phone first — that opens the
-window and your typed message text goes out verbatim.
+The adapter **sends the free-form text first and lets Meta decide**. If Meta
+replies with a re-engagement error (131047 / 131051 / 470) it retries once with
+the approved template. The window is never tracked locally.
+
+That is deliberate. Meta delivers real inbound webhooks only to a *published*
+app, so a sandbox app can never learn when a user's window opened — and guessing
+was wrong in both directions: sending a template when free text would have
+worked, or free text when the window had quietly closed. Letting the provider be
+the authority removes the guess.
+
+The inbound webhook is still implemented and verified (`/api/webhooks/whatsapp/`,
+signature-checked against `WHATSAPP_APP_SECRET`); it simply is not load-bearing.
 
 ## Scheduled triggers
 

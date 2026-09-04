@@ -14,8 +14,8 @@ Trigger (row)  ×  Channel (column)  =  Template (cell)  →  Adapter  →  Prov
 | Frontend | Next.js (App Router) | Vercel | [frontend/README.md](frontend/README.md) |
 
 **Repository:** https://github.com/Nitin9507/notification-system
-**Live backend:** _paste your Render URL_
-**Live frontend:** _paste your Vercel URL_
+**Live frontend:** https://notification-system-khaki.vercel.app
+**Live backend:** https://notification-system-api-lt95.onrender.com
 **Walkthrough video:** _paste your unlisted link_
 
 ## Triggers built
@@ -32,11 +32,22 @@ from the admin panel without touching code.
 
 ## Logging in as admin
 
-1. Open the frontend and sign in with the Django superuser created during setup
-   (`python manage.py createsuperuser`).
-2. Staff users land on **/admin** — the matrix. Non-staff users land on the
-   ordinary site at **/dashboard**.
-3. Django's own admin is also available at `<backend>/django-admin/`.
+Open https://notification-system-khaki.vercel.app/login and sign in:
+
+| Username | Password |
+|---|---|
+| `admin` | `REPLACE_WITH_ADMIN_PASSWORD` |
+
+Staff users land on **/admin**, the notification matrix. Anyone else lands on the
+ordinary site at **/dashboard**, where triggers actually fire. Django's own admin
+is at https://notification-system-api-lt95.onrender.com/django-admin/.
+
+The account is created during the Render build from the `DJANGO_SUPERUSER_*`
+environment variables, because the free plan has no shell to run
+`createsuperuser` by hand.
+
+> The backend sleeps after 15 minutes idle on Render's free tier, so the first
+> request may take up to a minute.
 
 ## Run both locally
 
@@ -156,8 +167,9 @@ mobile app push, per the brief.
 
 - **WhatsApp 24-hour rule.** Meta only accepts free-form text within 24h of the
   user messaging your number; outside that, an approved template is required. A
-  WhatsApp cell stores both and the adapter picks at send time. Message the
-  sandbox number from your phone before demoing.
+  WhatsApp cell stores both. The adapter sends your own wording first and retries
+  with the approved template only if Meta rejects it, so the window never has to
+  be tracked locally.
 - **Sandbox recipients.** The Meta test number only delivers to whitelisted
   numbers, and its access token expires roughly daily.
 - **Render free tier.** The service sleeps after 15 minutes idle; the first
