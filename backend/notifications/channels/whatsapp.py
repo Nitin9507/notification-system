@@ -11,8 +11,10 @@ import requests
 from django.conf import settings
 
 from notifications.channels.base import ChannelAdapter, Message, SendResult
-from notifications.models import Channel
+from notifications.models import Channel, DeliveryStatus
 from notifications.renderer import render_text
+
+RE_ENGAGEMENT_ERRORS = {131047, 131051, 470}
 
 
 class WhatsAppAdapter(ChannelAdapter):
@@ -27,50 +29,33 @@ class WhatsAppAdapter(ChannelAdapter):
         return (profile.phone_e164 or "").strip() if profile else ""
 
     def build_message(self, template, ctx, recipient: str) -> Message:
-        user = ctx.get("user")
-        profile = getattr(user, "profile", None)
-        session_open = bool(profile and profile.whatsapp_session_open)
+        """
+        Carry both forms of the message.
 
+        Free-form text is what the admin actually wrote, so it is always
+        preferred. The approved template rides along as a fallback for when
+        Meta refuses free text because the 24-hour window has closed.
+        """
         body = render_text(template.body, ctx)
 
-        if session_open or not template.wa_template_name:
-            return Message(recipient=recipient, body=body, extra={"mode": "text"})
+        fallback = None
+        if template.wa_template_name:
+            fallback = {
+                "template_name": template.wa_template_name,
+                "language_code": template.wa_language_code or "en_US",
+                "params": [
+                    render_text(str(value), ctx)
+                    for value in (template.wa_body_params or [])
+                ],
+            }
 
-        params = [render_text(str(p), ctx) for p in (template.wa_body_params or [])]
         return Message(
             recipient=recipient,
             body=body,
-            extra={
-                "mode": "template",
-                "template_name": template.wa_template_name,
-                "language_code": template.wa_language_code or "en_US",
-                "params": params,
-            },
+            extra={"mode": "text" if body else "template", "fallback": fallback},
         )
 
-    def _payload(self, message: Message) -> dict:
-        if message.extra.get("mode") == "template":
-            components = []
-            if message.extra.get("params"):
-                components.append(
-                    {
-                        "type": "body",
-                        "parameters": [
-                            {"type": "text", "text": p}
-                            for p in message.extra["params"]
-                        ],
-                    }
-                )
-            return {
-                "messaging_product": "whatsapp",
-                "to": message.recipient,
-                "type": "template",
-                "template": {
-                    "name": message.extra["template_name"],
-                    "language": {"code": message.extra["language_code"]},
-                    "components": components,
-                },
-            }
+    def _text_payload(self, message: Message) -> dict:
         return {
             "messaging_product": "whatsapp",
             "to": message.recipient,
@@ -78,14 +63,60 @@ class WhatsAppAdapter(ChannelAdapter):
             "text": {"preview_url": False, "body": message.body},
         }
 
+    def _template_payload(self, message: Message, fallback: dict) -> dict:
+        components = []
+        if fallback.get("params"):
+            components.append(
+                {
+                    "type": "body",
+                    "parameters": [
+                        {"type": "text", "text": value}
+                        for value in fallback["params"]
+                    ],
+                }
+            )
+        return {
+            "messaging_product": "whatsapp",
+            "to": message.recipient,
+            "type": "template",
+            "template": {
+                "name": fallback["template_name"],
+                "language": {"code": fallback["language_code"]},
+                "components": components,
+            },
+        }
+
     def deliver(self, message: Message) -> SendResult:
+        fallback = message.extra.get("fallback")
+
+        if message.extra.get("mode") == "template":
+            if not fallback:
+                return SendResult.failed(
+                    self.provider, "No message text and no approved template to send."
+                )
+            return self._post(self._template_payload(message, fallback))
+
+        result = self._post(self._text_payload(message))
+
+        # Meta refuses free-form text outside the 24-hour window. Rather than
+        # tracking that window ourselves, we let Meta tell us and retry with the
+        # approved template — so the admin's own wording is used whenever it can be.
+        if result.status == DeliveryStatus.FAILED and fallback:
+            code = (result.response.get("error") or {}).get("code")
+            if code in RE_ENGAGEMENT_ERRORS:
+                retried = self._post(self._template_payload(message, fallback))
+                if retried.ok:
+                    return retried
+        return result
+
+    def _post(self, payload: dict) -> SendResult:
         url = (
             f"https://graph.facebook.com/{settings.WHATSAPP_API_VERSION}"
             f"/{settings.WHATSAPP_PHONE_NUMBER_ID}/messages"
         )
         response = requests.post(
             url,
-            json=self._payload(message),
+            json=payload,
             headers={
                 "Authorization": f"Bearer {settings.WHATSAPP_ACCESS_TOKEN}",
                 "Content-Type": "application/json",
@@ -98,16 +129,15 @@ class WhatsAppAdapter(ChannelAdapter):
             data = {"raw": response.text[:500]}
 
         if response.ok:
-            message_id = ""
             messages = data.get("messages") or []
-            if messages:
-                message_id = messages[0].get("id", "")
-            return SendResult.sent(self.provider, message_id, data)
+            return SendResult.sent(
+                self.provider, messages[0].get("id", "") if messages else "", data
+            )
 
         error = data.get("error", {}) if isinstance(data, dict) else {}
         detail = error.get("message") or f"HTTP {response.status_code}"
         if error.get("code") == 190:
             detail += " (access token expired — regenerate it in Meta API Setup)"
-        elif error.get("code") == 131047:
-            detail += " (24h session closed — an approved template is required)"
+        elif error.get("code") in RE_ENGAGEMENT_ERRORS:
+            detail += " (24h window closed and no approved template is set)"
         return SendResult.failed(self.provider, detail, data)
