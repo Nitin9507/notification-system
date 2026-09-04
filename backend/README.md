@@ -132,7 +132,7 @@ Actions tab. Locally: `python manage.py run_scheduled_triggers --dry-run`.
 
 ## Deploying to Render
 
-`render.yaml` provisions the web service and a free Postgres instance. Or by hand:
+`render.yaml` (at the repo root) provisions the web service and a free Postgres instance. Or by hand:
 
 - **Root directory:** `backend`
 - **Build:** `./build.sh` (installs, collectstatic, migrate, seed)

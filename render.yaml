@@ -1,4 +1,6 @@
 # Render blueprint: one web service + one free Postgres instance.
+# Lives at the repo root because that is where Render looks for it;
+# rootDir points the build at the backend/ folder.
 # Provider credentials are marked sync:false so they are entered in the
 # dashboard rather than committed here.
 services:
@@ -6,6 +8,7 @@ services:
     name: notification-system-api
     runtime: python
     plan: free
+    rootDir: backend
     buildCommand: "./build.sh"
     startCommand: "gunicorn config.wsgi:application --bind 0.0.0.0:$PORT"
     envVars:
